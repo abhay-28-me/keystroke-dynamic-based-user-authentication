@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KeyAuth — Keystroke Authentication</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #04080f;
+    --surface:  #080f1a;
+    --border:   #0d1f35;
+    --accent:   #00d4ff;
+    --accent2:  #7b2fff;
+    --green:    #00ff88;
+    --red:      #ff3b5c;
+    --text:     #c8dff0;
+    --muted:    #3a5470;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  /* Animated background grid */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    animation: gridMove 20s linear infinite;
+    pointer-events: none;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 50%, rgba(123,47,255,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 60% at 80% 50%, rgba(0,212,255,0.06) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  @keyframes gridMove {
+    0%   { transform: translateY(0); }
+    100% { transform: translateY(40px); }
+  }
+
+  .container {
+    position: relative; z-index: 10;
+    width: 100%; max-width: 480px;
+    padding: 20px;
+  }
+
+  /* Logo */
+  .logo {
+    text-align: center;
+    margin-bottom: 40px;
+    animation: fadeDown 0.6s ease both;
+  }
+
+  .logo-icon {
+    width: 56px; height: 56px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border-radius: 16px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 24px;
+    margin-bottom: 16px;
+    box-shadow: 0 0 40px rgba(0,212,255,0.2);
+  }
+
+  .logo h1 {
+    font-size: 28px; font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+
+  .logo p {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; color: var(--muted);
+    letter-spacing: 2px; text-transform: uppercase;
+    margin-top: 6px;
+  }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 36px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+    animation: fadeUp 0.6s ease 0.1s both;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 32px;
+    border: 1px solid var(--border);
+  }
+
+  .tab {
+    flex: 1; padding: 8px 4px;
+    text-align: center;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px; letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    transition: all 0.2s;
+    border: none; background: none;
+  }
+
+  .tab.active {
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(0,212,255,0.2);
+  }
+
+  /* Form */
+  .form-group { margin-bottom: 20px; }
+
+  label {
+    display: block;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  input[type="text"], input[type="email"], input[type="password"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,212,255,0.08);
+  }
+
+  /* Password field with typing indicator */
+  .password-wrapper {
+    position: relative;
+  }
+
+  .typing-dots {
+    position: absolute; right: 14px; top: 50%;
+    transform: translateY(-50%);
+    display: flex; gap: 4px;
+    opacity: 0; transition: opacity 0.2s;
+  }
+
+  .typing-dots.active { opacity: 1; }
+
+  .dot {
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: dotPulse 1s ease infinite;
+  }
+  .dot:nth-child(2) { animation-delay: 0.15s; }
+  .dot:nth-child(3) { animation-delay: 0.3s; }
+
+  @keyframes dotPulse {
+    0%, 100% { transform: scale(1); opacity: 0.4; }
+    50%       { transform: scale(1.4); opacity: 1; }
+  }
+
+  /* Keystroke visualizer */
+  .keystroke-bar {
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 8px;
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .keystroke-bar.active { opacity: 1; }
+
+  .keystroke-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.1s;
+  }
+
+  /* Hint text */
+  .hint {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; color: var(--muted);
+    margin-top: 8px;
+    min-height: 16px;
+    transition: color 0.2s;
+  }
+
+  .hint.good { color: var(--green); }
+  .hint.bad  { color: var(--red); }
+
+  /* Button */
+  .btn {
+    width: 100%;
+    padding: 15px;
+    background: linear-gradient(135deg, var(--accent2), var(--accent));
+    border: none; border-radius: 10px;
+    color: #fff;
+    font-family: 'Syne', sans-serif;
+    font-size: 15px; font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
+    box-shadow: 0 8px 24px rgba(0,212,255,0.15);
+    margin-top: 8px;
+  }
+
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(0,212,255,0.25); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* Result box */
+  .result {
+    margin-top: 20px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    display: none;
+    animation: fadeUp 0.3s ease both;
+  }
+
+  .result.success {
+    background: rgba(0,255,136,0.06);
+    border: 1px solid rgba(0,255,136,0.2);
+    display: block;
+  }
+
+  .result.failure {
+    background: rgba(255,59,92,0.06);
+    border: 1px solid rgba(255,59,92,0.2);
+    display: block;
+  }
+
+  .result-title {
+    font-size: 16px; font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .result.success .result-title { color: var(--green); }
+  .result.failure .result-title { color: var(--red); }
+
+  .result-detail {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px; color: var(--muted);
+    line-height: 1.7;
+  }
+
+  /* Confidence meter */
+  .confidence-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+
+  .confidence-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease;
+  }
+
+  .confidence-fill.high { background: var(--green); }
+  .confidence-fill.low  { background: var(--red); }
+
+  /* Enroll steps */
+  .enroll-info {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px; color: var(--muted);
+    background: rgba(0,212,255,0.04);
+    border: 1px solid rgba(0,212,255,0.1);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-bottom: 20px;
+    line-height: 1.8;
+  }
+
+  .enroll-info span { color: var(--accent); }
+
+  /* Loading spinner */
+  .spinner {
+    display: inline-block;
+    width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-right: 8px; vertical-align: middle;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Page sections */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* Status badge */
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px; letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 5px 10px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+  }
+
+  .status-badge.online {
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.2);
+    color: var(--green);
+  }
+
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s ease infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Logo -->
+  <div class="logo">
+    <div class="logo-icon">🔐</div>
+    <h1>KeyAuth</h1>
+    <p>Keystroke Dynamics Authentication</p>
+  </div>
+
+  <!-- Card -->
+  <div class="card">
+    <div style="text-align:center">
+      <span class="status-badge online">
+        <span class="status-dot"></span> System Online
+      </span>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('login')">Login</button>
+      <button class="tab" onclick="switchTab('register')">Register</button>
+      <button class="tab" onclick="switchTab('enroll')">IKDD Enroll</button>
+      <button class="tab" onclick="switchTab('typing')">Live Enroll</button>
+    </div>
+
+    <!-- ── LOGIN PAGE ──────────────────────────────────────── -->
+    <div id="page-login" class="page active">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="login-username" placeholder="your_username" autocomplete="off">
+      </div>
+
+      <div class="form-group">
+        <label>Password <span style="color:var(--accent);font-size:10px">(your typing pattern is being analyzed)</span></label>
+        <div class="password-wrapper">
+          <input type="password" id="login-password" placeholder="Type your password..."
+            autocomplete="off"
+            onkeydown="recordKeyDown(event, 'login')"
+            onkeyup="recordKeyUp(event, 'login')"
+            oninput="updateBar('login')">
+          <div class="typing-dots" id="login-dots">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+          </div>
+        </div>
+        <div class="keystroke-bar" id="login-bar">
+          <div class="keystroke-fill" id="login-fill"></div>
+        </div>
+        <div class="hint" id="login-hint">Start typing to begin analysis...</div>
+      </div>
+
+      <button class="btn" id="login-btn" onclick="doLogin()">Analyze & Login</button>
+
+      <div class="result" id="login-result">
+        <div class="result-title" id="login-result-title"></div>
+        <div class="result-detail" id="login-result-detail"></div>
+        <div class="confidence-bar">
+          <div class="confidence-fill" id="login-confidence-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── REGISTER PAGE ───────────────────────────────────── -->
+    <div id="page-register" class="page">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="reg-username" placeholder="choose_username" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" id="reg-email" placeholder="you@email.com">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="reg-password" placeholder="min 6 characters">
+      </div>
+
+      <button class="btn" id="reg-btn" onclick="doRegister()">Create Account</button>
+
+      <div class="result" id="reg-result">
+        <div class="result-title" id="reg-result-title"></div>
+        <div class="result-detail" id="reg-result-detail"></div>
+      </div>
+    </div>
+
+    <!-- ── ENROLL PAGE ─────────────────────────────────────── -->
+    <div id="page-enroll" class="page">
+      <div class="enroll-info">
+        Enrollment trains the ML model on your <span>IKDD dataset</span> file.<br>
+        Enter your username and the IKDD file prefix (e.g. <span>user164</span>).<br>
+        Files must be in the server's <span>data/</span> folder.
+      </div>
+
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="enroll-username" placeholder="your_username" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>IKDD File Prefix</label>
+        <input type="text" id="enroll-file" placeholder="e.g. user164" autocomplete="off">
+        <div class="hint">Matches all files containing this prefix in data/ folder</div>
+      </div>
+
+      <button class="btn" id="enroll-btn" onclick="doEnroll()">Train My Model</button>
+
+      <div class="result" id="enroll-result">
+        <div class="result-title" id="enroll-result-title"></div>
+        <div class="result-detail" id="enroll-result-detail"></div>
+      </div>
+    </div>
+
+
+    <!-- ── LIVE ENROLL PAGE ────────────────────────────────── -->
+    <div id="page-typing" class="page">
+      <div class="enroll-info">
+        Type the phrase below <span>5-10 times</span> to train your model.<br>
+        Phrase: <span>"the quick brown fox"</span><br>
+        Each repetition captures your unique typing rhythm.
+      </div>
+
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="typing-username" placeholder="your_username" autocomplete="off">
+      </div>
+
+      <div class="form-group">
+        <label>Type this phrase: <span style="color:var(--accent)">the quick brown fox</span></label>
+        <div class="password-wrapper">
+          <input type="text" id="typing-input" placeholder="Start typing here..."
+            autocomplete="off"
+            onkeydown="recordKeyDown(event, 'typing')"
+            onkeyup="recordKeyUp(event, 'typing')"
+>
+          <div class="typing-dots" id="typing-dots">
+            <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+          </div>
+        </div>
+        <div class="keystroke-bar active" id="typing-bar">
+          <div class="keystroke-fill" id="typing-fill"></div>
+        </div>
+        <div class="hint" id="typing-hint">Type the phrase and press Enter after each attempt</div>
+      </div>
+
+      <div id="typing-samples-display" style="font-family:Space Mono,monospace;font-size:11px;color:var(--muted);margin-bottom:16px;">
+        Samples collected: <span id="typing-count" style="color:var(--accent)">0 / 5</span>
+      </div>
+
+      <button class="btn" id="typing-btn" onclick="doTypingEnroll()" disabled>Collect 5 samples first</button>
+
+      <div class="result" id="typing-result">
+        <div class="result-title" id="typing-result-title"></div>
+        <div class="result-detail" id="typing-result-detail"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = "http://127.0.0.1:8000";
+// ── Live typing enrollment ─────────────────────────────────────────────────
+const PHRASE = 'the quick brown fox';
+const typingSamples = [];
+
+
+function checkTypingPhrase() {
+  const input = document.getElementById('typing-input');
+  const val   = input.value.toLowerCase().trim();
+  const fill  = document.getElementById('typing-fill');
+  const pct   = Math.min((val.length / PHRASE.length) * 100, 100);
+  fill.style.width = pct + '%';
+
+  // Accept if typed phrase matches or is close enough (within 3 chars)
+  if (val === PHRASE || (val.length >= PHRASE.length - 2 && val.length <= PHRASE.length + 2)) {
+    // Sample complete!
+    typingSamples.push({
+      dwell_times:  [...keyData.typing.dwellTimes],
+      flight_times: [...keyData.typing.flightTimes],
+    });
+
+    // Reset for next sample
+    
+    input.value = '';
+    fill.style.width = '0%';
+
+    const count = typingSamples.length;
+    document.getElementById('typing-count').textContent = count + ' / 5';
+
+    const hint = document.getElementById('typing-hint');
+    if (count < 5) {
+      hint.textContent = '✓ Sample ' + count + ' saved! Type again (' + (5 - count) + ' more needed)';
+      hint.className = 'hint good';
+    } else {
+      hint.textContent = '✅ All samples collected! Click Train below.';
+      hint.className = 'hint good';
+      const btn = document.getElementById('typing-btn');
+      btn.disabled = false;
+      btn.textContent = 'Train My Model';
+    }
+  }
+}
+
+async function doTypingEnroll() {
+  const btn      = document.getElementById('typing-btn');
+  const username = document.getElementById('typing-username').value.trim();
+
+  if (!username) {
+    showResult('typing', false, 'Missing username', 'Please enter your username.');
+    return;
+  }
+
+  if (typingSamples.length < 5) {
+    showResult('typing', false, 'Not enough samples', 'Please type the phrase at least 5 times.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Training Model...';
+
+  try {
+    const res = await fetch(API + '/keystrokes/enroll-typing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, samples: typingSamples }),
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      showResult('typing', true, '✅ Model Trained!', 'Accuracy: ' + data.accuracy + ' | Samples: ' + data.n_samples + ' | Now login using your keystroke pattern!');
+    } else {
+      showResult('typing', false, '❌ Failed', data.detail || 'Unknown error');
+    }
+  } catch (e) {
+    showResult('typing', false, '❌ Connection Error', 'Make sure the server is running on port 8000.');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = 'Train My Model';
+}
+
+
+
+// ── Keystroke tracking ─────────────────────────────────────────────────────
+const keyData = { login: { keyDownTimes: {}, dwellTimes: [], flightTimes: [], lastUpTime: null }, typing: { keyDownTimes: {}, dwellTimes: [], flightTimes: [], lastUpTime: null } };
+
+function recordKeyDown(e, page) {
+  const now = performance.now();
+  keyData[page].keyDownTimes[e.key] = now;
+
+  // Flight time = time since last key release
+  if (keyData[page].lastUpTime !== null) {
+    const flight = now - keyData[page].lastUpTime;
+    if (flight > 0 && flight < 2000) {
+      keyData[page].flightTimes.push(Math.round(flight));
+    }
+  }
+
+  // Show typing dots
+  if (document.getElementById(`${page}-dots`)) {
+    document.getElementById(`${page}-dots`).classList.add('active');
+  }
+
+  // For typing enrollment — save sample on Enter
+  if (page === 'typing' && e.key === 'Enter') {
+    e.preventDefault();
+    checkTypingPhrase();
+  }
+}
+
+function recordKeyUp(e, page) {
+  const now = performance.now();
+  const downTime = keyData[page].keyDownTimes[e.key];
+
+  if (downTime !== undefined) {
+    const dwell = now - downTime;
+    if (dwell > 0 && dwell < 1000) {
+      keyData[page].dwellTimes.push(Math.round(dwell));
+    }
+    delete keyData[page].keyDownTimes[e.key];
+  }
+
+  keyData[page].lastUpTime = now;
+
+  // Update hint
+  const count = keyData[page].dwellTimes.length;
+  const hint  = document.getElementById(`${page}-hint`);
+  if (count < 5) {
+    hint.textContent = `Keep typing... (${count} keystrokes captured)`;
+    hint.className = 'hint';
+  } else if (count < 10) {
+    hint.textContent = `Good! ${count} keystrokes captured`;
+    hint.className = 'hint good';
+  } else {
+    hint.textContent = `✓ ${count} keystrokes captured — ready to analyze!`;
+    hint.className = 'hint good';
+  }
+
+  // Hide dots after short delay
+  setTimeout(() => {
+    document.getElementById(`${page}-dots`).classList.remove('active');
+  }, 500);
+}
+
+function updateBar(page) {
+  const input = document.getElementById(`${page}-password`);
+  const bar   = document.getElementById(`${page}-bar`);
+  const fill  = document.getElementById(`${page}-fill`);
+  const count = keyData[page].dwellTimes.length;
+
+  bar.classList.add('active');
+  const pct = Math.min(count * 5, 100);
+  fill.style.width = pct + '%';
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['login','register','enroll','typing'][i] === tab);
+  });
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(`page-${tab}`).classList.add('active');
+}
+
+// ── Register ───────────────────────────────────────────────────────────────
+async function doRegister() {
+  const btn      = document.getElementById('reg-btn');
+  const username = document.getElementById('reg-username').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+
+  if (!username || !email || !password) {
+    showResult('reg', false, 'Missing fields', 'Please fill in all fields.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Creating Account...';
+
+  try {
+    const res = await fetch(`${API}/users/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, email, password }),
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      showResult('reg', true, '✅ Account Created!', `Welcome, ${data.username}! Now go to Enroll tab to train your model.`);
+    } else {
+      showResult('reg', false, '❌ Registration Failed', data.detail || 'Unknown error');
+    }
+  } catch (e) {
+    showResult('reg', false, '❌ Connection Error', 'Make sure the server is running on port 8000.');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = 'Create Account';
+}
+
+// ── Enroll ─────────────────────────────────────────────────────────────────
+async function doEnroll() {
+  const btn      = document.getElementById('enroll-btn');
+  const username = document.getElementById('enroll-username').value.trim();
+  const ikddFile = document.getElementById('enroll-file').value.trim();
+
+  if (!username || !ikddFile) {
+    showResult('enroll', false, 'Missing fields', 'Please fill in all fields.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Training ML Model...';
+
+  try {
+    const res = await fetch(`${API}/keystrokes/enroll`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, ikdd_file: ikddFile }),
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      showResult('enroll', true, '✅ Model Trained!',
+        `Accuracy: ${data.accuracy}\nSamples: ${data.n_samples}\n\nYou can now login using your keystroke pattern!`);
+    } else {
+      showResult('enroll', false, '❌ Enrollment Failed', data.detail || 'Unknown error');
+    }
+  } catch (e) {
+    showResult('enroll', false, '❌ Connection Error', 'Make sure the server is running on port 8000.');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = 'Train My Model';
+}
+
+// ── Login ──────────────────────────────────────────────────────────────────
+async function doLogin() {
+  const btn      = document.getElementById('login-btn');
+  const username = document.getElementById('login-username').value.trim();
+  const dwell    = keyData.login.dwellTimes;
+  const flight   = keyData.login.flightTimes;
+
+  if (!username) {
+    showResult('login', false, 'Missing username', 'Please enter your username.');
+    return;
+  }
+
+  if (dwell.length < 5) {
+    showResult('login', false, '⚠️ Not enough data', 'Please type your password first (at least 5 keystrokes needed).');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Analyzing Pattern...';
+
+  try {
+    const res = await fetch(`${API}/keystrokes/authenticate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, dwell_times: dwell, flight_times: flight }),
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      const confidence = Math.round(data.confidence * 100);
+      const detail = `Confidence: ${confidence}%\nDwell times captured: ${dwell.length}\nFlight times captured: ${flight.length}`;
+
+      showResult('login', data.authentic, 
+        data.authentic ? '✅ Identity Verified!' : '❌ Authentication Failed',
+        detail, confidence, data.authentic
+      );
+
+      // Reset keystroke data for next attempt
+      keyData.login = { keyDownTimes: {}, dwellTimes: [], flightTimes: [], lastUpTime: null };
+      document.getElementById('login-password').value = '';
+      document.getElementById('login-hint').textContent = 'Start typing to begin analysis...';
+      document.getElementById('login-fill').style.width = '0%';
+    } else {
+      showResult('login', false, '❌ Error', data.detail || 'Unknown error');
+    }
+  } catch (e) {
+    showResult('login', false, '❌ Connection Error', 'Make sure the server is running on port 8000.');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = 'Analyze & Login';
+}
+
+// ── Show result helper ─────────────────────────────────────────────────────
+function showResult(page, success, title, detail, confidence = null, isHigh = false) {
+  const el      = document.getElementById(`${page}-result`);
+  const titleEl = document.getElementById(`${page}-result-title`);
+  const detailEl = document.getElementById(`${page}-result-detail`);
+
+  el.className = `result ${success ? 'success' : 'failure'}`;
+  titleEl.textContent = title;
+  detailEl.style.whiteSpace = 'pre-line';
+  detailEl.textContent = detail;
+
+  if (confidence !== null) {
+    const fill = document.getElementById(`${page}-confidence-fill`);
+    fill.style.width = confidence + '%';
+    fill.className = `confidence-fill ${isHigh ? 'high' : 'low'}`;
+  }
+}
+</script>
+</body>
+</html>

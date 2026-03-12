@@ -1,0 +1,23 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# Trained models (large files)
+saved_models/
+
+# Dataset files (large)
+data/
+
+# VS Code
+.vscode/
+
+# Mac
+.DS_Store
